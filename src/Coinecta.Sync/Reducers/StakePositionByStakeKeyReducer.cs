@@ -86,6 +86,19 @@ public class StakePositionByStakeKeyReducer(
 
     private async Task ProcessOutputAync(PallasDotnet.Models.Block block, TransactionBody tx)
     {
+        StakeRequestByAddress? stakeRequest = null;
+
+        foreach (TransactionInput input in tx.Inputs)
+        {
+            stakeRequest = await _dbContext.StakeRequestByAddresses.FirstOrDefaultAsync(s => s.TxHash == input.Id.ToHex() && s.TxIndex == input.Index);
+            if (stakeRequest is not null) 
+                break;
+                
+            await Task.Delay(100);
+        }
+
+        if (stakeRequest == null) return;
+
         foreach (TransactionOutput output in tx.Outputs)
         {
             string addressBech32 = output.Address.ToBech32();
@@ -107,22 +120,6 @@ public class StakePositionByStakeKeyReducer(
                                 string? assetName = stakeKeyBundle.Keys.FirstOrDefault(key => key.StartsWith("000643b0"));
                                 if (assetName is not null)
                                 {
-
-                                    StakeRequestByAddress? stakeRequest = null;
-
-                                    while (stakeRequest is null)
-                                    {
-                                        foreach (TransactionInput input in tx.Inputs)
-                                        {
-                                            stakeRequest = await _dbContext.StakeRequestByAddresses.FirstOrDefaultAsync(s => s.TxHash == input.Id.ToHex() && s.TxIndex == input.Index);
-                                            if (stakeRequest is not null)
-                                            {
-                                                break;
-                                            }
-                                            await Task.Delay(100);
-                                        }
-                                    }
-
                                     StakePositionByStakeKey stakePositionByKey = new()
                                     {
                                         StakeKey = configuration["CoinectaStakeKeyPolicyId"]! + assetName.Replace("000643b0", string.Empty),
