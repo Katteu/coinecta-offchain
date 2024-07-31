@@ -8,7 +8,6 @@ using PallasDotnet.Models;
 using Address = CardanoSharp.Wallet.Models.Addresses.Address;
 using Cardano.Sync.Data.Models.Datums;
 using CardanoSharp.Wallet.Utilities;
-using CardanoSharp.Wallet.Enums;
 using Coinecta.Data.Utils;
 using Cardano.Sync.Data.Models;
 
@@ -35,13 +34,13 @@ public class StakeRequestByAddressReducer(
     public async Task RollForwardAsync(NextResponse response)
     {
         _dbContext = dbContextFactory.CreateDbContext();
-        await ProcessInputAync(response);
-        await ProcessOutputAync(response);
+        await ProcessInputAsync(response);
+        await ProcessOutputAsync(response);
         await _dbContext.SaveChangesAsync();
         _dbContext.Dispose();
     }
 
-    private async Task ProcessInputAync(NextResponse response)
+    private async Task ProcessInputAsync(NextResponse response)
     {
         // Collect input id and index as tuples
         List<(string Id, ulong Index)> inputTuples = response.Block.TransactionBodies
@@ -98,7 +97,7 @@ public class StakeRequestByAddressReducer(
         }
     }
 
-    private Task ProcessOutputAync(NextResponse response)
+    private Task ProcessOutputAsync(NextResponse response)
     {
         foreach (TransactionBody txBody in response.Block.TransactionBodies)
         {

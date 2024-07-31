@@ -4,6 +4,7 @@ using System.Text.Json;
 using Coinecta.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Coinecta.Data.Migrations
 {
     [DbContext(typeof(CoinectaDbContext))]
-    partial class CoinectaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240731123505_UpdateStakePositionByStakeKeyTable")]
+    partial class UpdateStakePositionByStakeKeyTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -193,7 +196,7 @@ namespace Coinecta.Data.Migrations
 
                     b.HasKey("StakeKey", "Slot", "TxHash", "TxIndex", "UtxoStatus");
 
-                    b.ToTable("StakePositionsHistory", "coinecta");
+                    b.ToTable("StakePositionHistory", "coinecta");
                 });
 
             modelBuilder.Entity("Coinecta.Data.Models.Reducers.StakeRequestByAddress", b =>
@@ -425,7 +428,7 @@ namespace Coinecta.Data.Migrations
 
                             b1.HasKey("StakePositionHistoryStakeKey", "StakePositionHistorySlot", "StakePositionHistoryTxHash", "StakePositionHistoryTxIndex", "StakePositionHistoryUtxoStatus");
 
-                            b1.ToTable("StakePositionsHistory", "coinecta");
+                            b1.ToTable("StakePositionHistory", "coinecta");
 
                             b1.WithOwner()
                                 .HasForeignKey("StakePositionHistoryStakeKey", "StakePositionHistorySlot", "StakePositionHistoryTxHash", "StakePositionHistoryTxIndex", "StakePositionHistoryUtxoStatus");
@@ -456,7 +459,7 @@ namespace Coinecta.Data.Migrations
 
                             b1.HasKey("StakePositionHistoryStakeKey", "StakePositionHistorySlot", "StakePositionHistoryTxHash", "StakePositionHistoryTxIndex", "StakePositionHistoryUtxoStatus");
 
-                            b1.ToTable("StakePositionsHistory", "coinecta");
+                            b1.ToTable("StakePositionHistory", "coinecta");
 
                             b1.WithOwner()
                                 .HasForeignKey("StakePositionHistoryStakeKey", "StakePositionHistorySlot", "StakePositionHistoryTxHash", "StakePositionHistoryTxIndex", "StakePositionHistoryUtxoStatus");

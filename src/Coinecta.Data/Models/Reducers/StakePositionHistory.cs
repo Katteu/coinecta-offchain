@@ -7,7 +7,7 @@ using Coinecta.Data.Models.Enums;
 
 namespace Coinecta.Data.Models.Reducers;
 
-public record StakePositionByStakeKey
+public record StakePositionHistory
 {
     public string StakeKey { get; init; } = default!;
     public ulong Slot { get; init; }
@@ -16,6 +16,7 @@ public record StakePositionByStakeKey
     public string TxOutputRef { get; init; } = default!;
     public Value Amount { get; init; } = default!;
     public ulong LockTime { get; init; }
+    public UtxoStatus UtxoStatus { get; set; } = UtxoStatus.Unspent;
     public Rational Interest { get; init; } = default!;
 
     [NotMapped]
