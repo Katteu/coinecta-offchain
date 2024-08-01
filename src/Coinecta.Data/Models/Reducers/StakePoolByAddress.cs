@@ -3,6 +3,7 @@ using System.Text.Json;
 using Cardano.Sync.Data.Models;
 using Coinecta.Data.Models.Datums;
 using Coinecta.Data.Models.Enums;
+using Value = Cardano.Sync.Data.Models.Value;
 
 namespace Coinecta.Data.Models.Reducers;
 public record StakePoolByAddress

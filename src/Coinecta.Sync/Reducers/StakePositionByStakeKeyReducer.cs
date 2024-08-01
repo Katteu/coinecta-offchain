@@ -10,6 +10,7 @@ using Cardano.Sync.Reducers;
 using Coinecta.Data.Models.Enums;
 using Cardano.Sync.Data.Models;
 using TransactionOutput = PallasDotnet.Models.TransactionOutput;
+using CardanoSharp.Wallet.Models;
 
 namespace Coinecta.Sync.Reducers;
 
@@ -35,9 +36,9 @@ public class StakePositionByStakeKeyReducer(
 
         List<StakePositionHistory> stakePositionsToRestore = await _dbContext.StakePositionsHistory
             .AsNoTracking()
-            .Where(s => s.Slot <= rollbackSlot)
-            .GroupBy(s => s.TxHash)
-            .Where(g => g.Count() == 1)
+            .Where(s => s.Slot > rollbackSlot)
+            .GroupBy(s => s.TxOutputRef)
+            .Where(g => g.Count() == 1 && g.Any(s => s.UtxoStatus == UtxoStatus.Spent))
             .Select(g => g.First())
             .ToListAsync();
 
@@ -56,10 +57,9 @@ public class StakePositionByStakeKeyReducer(
                     TxHash = stakePosition.TxHash,
                     TxIndex = stakePosition.TxIndex,
                     TxOutputRef = stakePosition.TxOutputRef,
-                    Amount = stakePosition.Amount,
-                    StakePosition = stakePosition.StakePosition,
-                    LockTime = stakePosition.LockTime,
                     Interest = stakePosition.Interest,
+                    StakePosition = stakePosition.StakePosition,
+                    Amount = stakePosition.Amount,
                 };
                 stakePositionsToAdd.Add(stakePositionByKey);
             }
@@ -110,6 +110,7 @@ public class StakePositionByStakeKeyReducer(
         {
             foreach (StakePositionByStakeKey stakePosition in stakePositions)
             {
+
                 StakePositionHistory stakePositionHistory = new()
                 {
                     StakeKey = stakePosition.StakeKey,
@@ -117,11 +118,10 @@ public class StakePositionByStakeKeyReducer(
                     TxHash = stakePosition.TxHash,
                     TxIndex = stakePosition.TxIndex,
                     TxOutputRef = stakePosition.TxOutputRef,
-                    Amount = stakePosition.Amount,
-                    StakePosition = stakePosition.StakePosition,
-                    LockTime = stakePosition.LockTime,
                     Interest = stakePosition.Interest,
-                    UtxoStatus = UtxoStatus.Spent
+                    UtxoStatus = UtxoStatus.Spent,          
+                    StakePosition = stakePosition.StakePosition,
+                    Amount = stakePosition.Amount,
                 };
 
                 stakePositionsHistoryToAdd.Add(stakePositionHistory);
@@ -162,14 +162,13 @@ public class StakePositionByStakeKeyReducer(
                                     if (assetName is not null)
                                     {
                                         string _assetName = assetName.Replace(_referencePrefix, string.Empty);
+
                                         string? userAddress = tx.Outputs
                                             .Where(output => output.Amount.MultiAsset is not null)
-                                            .SelectMany(output => Utils.FilterAndMapMultiAsset(
-                                                output.Amount.MultiAsset,
-                                                _stakeKeyPolicyId,
-                                                assetName => assetName.StartsWith(_stakeKeyPrefix) && assetName.Contains(_assetName),
-                                                (_, _, _) => output.Address.ToBech32()
+                                            .Where(output => Utils.FilterAssetByPolicyId(output.Amount.MultiAsset, _stakeKeyPolicyId)
+                                                .Any(ma => ma.Value.Any(v => v.Key.ToHex().StartsWith(_stakeKeyPrefix) && v.Key.ToHex().Contains(_assetName))
                                             ))
+                                            .Select(output => output.Address.ToBech32())
                                             .FirstOrDefault();
 
                                         StakeRequestByAddress? matchingStakeRequest = stakeRequests.FirstOrDefault(s => s.Address == userAddress);
@@ -183,10 +182,10 @@ public class StakePositionByStakeKeyReducer(
                                                 TxOutputRef = tx.Id.ToHex() + output.Index.ToString(),
                                                 TxHash = tx.Id.ToHex(),
                                                 TxIndex = output.Index,
-                                                Amount = entityUtxo.Amount,
-                                                StakePosition = timelockDatum,
-                                                LockTime = timelockDatum.Extra.Lockuntil,
                                                 Interest = matchingStakeRequest.StakePoolProxy.RewardMultiplier,
+                                                StakePosition = timelockDatum,
+                                                Amount = entityUtxo.Amount,
+
                                             };
 
                                             StakePositionHistory stakePositionHistory = new()
@@ -196,11 +195,10 @@ public class StakePositionByStakeKeyReducer(
                                                 TxOutputRef = tx.Id.ToHex() + output.Index.ToString(),
                                                 TxHash = tx.Id.ToHex(),
                                                 TxIndex = output.Index,
-                                                Amount = entityUtxo.Amount,
-                                                StakePosition = timelockDatum,
-                                                LockTime = timelockDatum.Extra.Lockuntil,
                                                 Interest = matchingStakeRequest.StakePoolProxy.RewardMultiplier,
-                                                UtxoStatus = UtxoStatus.Unspent
+                                                UtxoStatus = UtxoStatus.Unspent,
+                                                StakePosition = timelockDatum,
+                                                Amount = entityUtxo.Amount,
                                             };
 
                                             _dbContext.StakePositionByStakeKeys.Add(stakePositionByKey);
@@ -230,6 +228,7 @@ public class StakePositionByStakeKeyReducer(
         string[] allTxOutputRefs = block.TransactionBodies.SelectMany(tx => tx.Inputs.Select(i => i.Id.ToHex() + i.Index.ToString())).ToArray();
 
         return await _dbContext.StakeRequestByAddresses
+            .AsNoTracking()
             .Where(s => allTxOutputRefs.Contains(s.TxHash + s.TxIndex.ToString()))
             .ToListAsync();
     }

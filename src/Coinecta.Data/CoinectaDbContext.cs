@@ -27,13 +27,37 @@ public class CoinectaDbContext
         modelBuilder.Entity<StakeRequestByAddress>().HasKey(item => new { item.Address, item.Slot, item.TxHash, item.TxIndex });
         modelBuilder.Entity<StakeRequestByAddress>().OwnsOne(item => item.Amount);
 
-        modelBuilder.Entity<StakePositionByStakeKey>().HasKey(item => new { item.StakeKey, item.Slot, item.TxHash, item.TxIndex});
-        modelBuilder.Entity<StakePositionByStakeKey>().OwnsOne(item => item.Amount);
-        modelBuilder.Entity<StakePositionByStakeKey>().OwnsOne(item => item.Interest);
+        modelBuilder.Entity<StakePositionByStakeKey>(entity => {
+            entity.HasKey(item => new { item.StakeKey, item.Slot, item.TxHash, item.TxIndex});
 
-        modelBuilder.Entity<StakePositionHistory>().HasKey(item => new { item.StakeKey, item.Slot, item.TxHash, item.TxIndex, item.UtxoStatus});
-        modelBuilder.Entity<StakePositionHistory>().OwnsOne(item => item.Amount);
-        modelBuilder.Entity<StakePositionHistory>().OwnsOne(item => item.Interest);
+            entity.HasIndex(item => item.StakeKey);
+            entity.HasIndex(item => item.Slot);
+            entity.HasIndex(item => item.TxHash);
+            entity.HasIndex(item => item.TxIndex);
+
+            entity.OwnsOne(item => item.Interest);
+
+            entity.Ignore(item => item.Amount);
+            entity.Ignore(item => item.AmountDatum);
+            entity.Ignore(item => item.StakePosition);
+        });
+
+        modelBuilder.Entity<StakePositionHistory>(entity =>
+        {
+            entity.HasKey(item => new { item.StakeKey, item.Slot, item.TxHash, item.TxIndex, item.UtxoStatus });
+
+            entity.HasIndex(item => item.StakeKey);
+            entity.HasIndex(item => item.Slot);
+            entity.HasIndex(item => item.TxHash);
+            entity.HasIndex(item => item.TxIndex);
+            entity.HasIndex(item => item.UtxoStatus);
+
+            entity.OwnsOne(item => item.Interest);
+
+            entity.Ignore(item => item.Amount);
+            entity.Ignore(item => item.AmountDatum);
+            entity.Ignore(item => item.StakePosition);
+        });
 
         modelBuilder.Entity<UtxoByAddress>().HasKey(item => item.Address);
         modelBuilder.Entity<UtxoByAddress>().HasIndex(item => item.LastRequested);

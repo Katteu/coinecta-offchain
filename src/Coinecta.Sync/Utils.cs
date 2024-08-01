@@ -32,38 +32,14 @@ public static class Utils
         };
     }
 
-    // public static IEnumerable<T> FilterAndMapMultiAsset<T>(
-    // Dictionary<Hash, Dictionary<Hash, ulong>> multiAsset,
-    // string policyIdFilter,
-    // Func<string, bool> assetNameCondition,
-    // Func<string, string, ulong, T> selector)
-    // {
-    //     return multiAsset
-    //         .Where(ma => ma.Key.ToHex() == policyIdFilter)
-    //         .SelectMany(ma => ma.Value
-    //             .Where(asset => assetNameCondition(asset.Key.ToHex()))
-    //             .Select(asset => selector(
-    //                 ma.Key.ToHex(),
-    //                 asset.Key.ToHex(),
-    //                 asset.Value
-    //             ))
-    //         );
-    // }
-    public static IEnumerable<T> FilterAndMapMultiAsset<T>(
-    Dictionary<Hash, Dictionary<Hash, ulong>> multiAsset,
-    string policyIdFilter,
-    Func<string, bool> assetNameCondition,
-    Func<string, string, ulong, T> selector)
+    public static Dictionary<Hash, Dictionary<Hash, ulong>> FilterAssetByPolicyId
+    (
+       Dictionary<Hash, Dictionary<Hash, ulong>> multiAsset,
+       string policyIdFilter
+    )
     {
         return multiAsset
             .Where(ma => ma.Key.ToHex() == policyIdFilter)
-            .SelectMany(ma => ma.Value
-                .Where(asset => assetNameCondition(asset.Key.ToHex()))
-                .Select(asset => selector(
-                    ma.Key.ToHex(),
-                    asset.Key.ToHex(),
-                    asset.Value
-                ))
-            );
+            .ToDictionary();
     }
 }
