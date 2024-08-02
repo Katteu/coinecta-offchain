@@ -30,11 +30,13 @@ public class CoinectaDbContext
 
         modelBuilder.Entity<StakePositionByStakeKey>(entity => {
             entity.HasKey(item => new { item.StakeKey, item.Slot, item.TxHash, item.TxIndex});
+
             entity.HasIndex(item => item.StakeKey);
             entity.HasIndex(item => item.Slot);
             entity.HasIndex(item => item.TxHash);
             entity.HasIndex(item => item.TxIndex);
-            entity.OwnsOne(item => item.Interest);
+
+            entity.Ignore(item => item.Interest);
             entity.Ignore(item => item.Amount);
             entity.Ignore(item => item.AmountDatum);
             entity.Ignore(item => item.StakePosition);
@@ -43,12 +45,14 @@ public class CoinectaDbContext
         modelBuilder.Entity<StakePositionHistory>(entity =>
         {
             entity.HasKey(item => new { item.StakeKey, item.Slot, item.TxHash, item.TxIndex, item.UtxoStatus });
+
             entity.HasIndex(item => item.StakeKey);
             entity.HasIndex(item => item.Slot);
             entity.HasIndex(item => item.TxHash);
             entity.HasIndex(item => item.TxIndex);
             entity.HasIndex(item => item.UtxoStatus);
-            entity.OwnsOne(item => item.Interest);
+            
+            entity.Ignore(item => item.Interest);
             entity.Ignore(item => item.Amount);
             entity.Ignore(item => item.AmountDatum);
             entity.Ignore(item => item.StakePosition);

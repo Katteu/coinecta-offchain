@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using Cardano.Sync.Data.Models;
 using Cardano.Sync.Data.Models.Datums;
 using Coinecta.Data.Models.Datums;
@@ -17,25 +16,28 @@ public record StakePositionHistory
     public ulong TxIndex { get; init; }
     public string TxOutputRef { get; init; } = default!;
     public byte[] AmountCbor { get; set; } = [];
-    public Rational Interest { get; init; } = default!;
+    public byte[] InterestCbor { get; private set; } = [];
     public byte[] StakePositionCbor { get; set; } = [];
     public UtxoStatus UtxoStatus { get; set; } = UtxoStatus.Unspent;
 
-    [NotMapped]
     public CIP68<Timelock> StakePosition
     {
         get => CborConverter.Deserialize<CIP68<Timelock>>(StakePositionCbor);
         set => StakePositionCbor = CborConverter.Serialize(value);
     }
 
-    [NotMapped]
+    public Rational Interest 
+    {
+        get => CborConverter.Deserialize<Rational>(InterestCbor);
+        set => InterestCbor = CborConverter.Serialize(value);
+    }
+
     public ValueDatum AmountDatum
     {
         get => CborConverter.Deserialize<ValueDatum>(AmountCbor);
         set => AmountCbor = CborConverter.Serialize(value);
     }
 
-    [NotMapped]
     public Value Amount
     {
         get => CoinectaUtils.ConvertValueDatumToValue(AmountDatum);

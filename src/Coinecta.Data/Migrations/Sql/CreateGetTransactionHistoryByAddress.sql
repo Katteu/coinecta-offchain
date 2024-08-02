@@ -79,12 +79,11 @@ BEGIN
         SELECT  
             Nft."Address",
             'StakePositionReceived' as txtype,
-            StakeKeys."Amount_Coin" AS lovelace,
-            StakeKeys."Amount_MultiAssetJson" AS assets,
+            StakeKeys."AmountCbor" AS Amount,
             StakeKeys."Slot",
             StakeKeys."TxHash",
             NULL as lockduration,
-            StakeKeys."LockTime" AS unlocktime,
+            StakeKeys."StakePositionCbor" AS StakePosition,
             StakeKeys."StakeKey",
             Nft."prev_address" AS transferredtoaddress,
             StakeKeys."TxIndex" AS outputindex
@@ -93,16 +92,13 @@ BEGIN
         LEFT JOIN 
             (SELECT DISTINCT 
                 "StakeKey",
-                "LockTime",
                 "Slot",
                 "TxHash",
                 "TxIndex",
-                "Amount_Coin",
-                "Amount_MultiAssetJson"
+                "AmountCbor",
+                "StakePositionCbor"
             FROM 
-                coinecta."StakePositionByStakeKeys"
-            WHERE 
-                "UtxoStatus" = 0) StakeKeys
+                coinecta."StakePositionByStakeKeys") StakeKeys
         ON 
             StakeKeys."StakeKey" = Nft."PolicyId" || substring(Nft."AssetName" FROM 8 + 1)
         WHERE 
@@ -156,12 +152,10 @@ BEGIN
         SELECT  
                 Nft."Address",
                 'StakePositionTransferred' as txtype,
-                StakeKeys."Amount_Coin" AS lovelace,
-                StakeKeys."Amount_MultiAssetJson" AS assets,
+                StakeKeys."AmountCbor" AS Amount,
                 Nft."Slot",
                 Nft.next_tx_hash AS txhash,
-                null as lockduration,
-                StakeKeys."LockTime" AS unlocktime,
+                StakeKeys."StakePositionCbor" AS StakePosition,
                 Nft."PolicyId" || substring(Nft."AssetName" FROM 8 + 1) AS stakekey,
                 Nft.next_address AS transferredtoaddress,
                 Nft."OutputIndex" AS outputindex
@@ -183,12 +177,11 @@ BEGIN
         spbsk."StakeKey",
         spbsk."Slot",
         spbsk."TxHash",
-        spbsk."Amount_Coin",
-        spbsk."Amount_MultiAssetJson",
-        spbsk."LockTime",
+        spbsk."AmountCbor",
+        spbsk."StakePositionCbor",
         spbsk."TxIndex"
     FROM
-        coinecta."StakePositionByStakeKeys" spbsk
+        coinecta."StakePositionsHistory" spbsk
     WHERE
         spbsk."UtxoStatus" = 1
     ),
@@ -207,12 +200,10 @@ BEGIN
         SELECT
             nft."Address",
             'StakePositionRedeemed' as txtype,
-            sp."Amount_Coin" AS lovelace,
-            sp."Amount_MultiAssetJson" AS assets,
+            sp."AmountCbor" AS Amount,
             sp."Slot",
             sp."TxHash" as txhash,
-            null as lockduration,
-            sp."LockTime" AS unlocktime,
+            sp."StakePositionCbor" AS StakePosition,
             sp."StakeKey" as stakekey,
             null AS transferredtoaddress,
             sp."TxIndex" AS outputindex
