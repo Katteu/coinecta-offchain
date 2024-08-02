@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -29,6 +30,24 @@ namespace Coinecta.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "NftsByAddress",
+                schema: "coinecta",
+                columns: table => new
+                {
+                    TxHash = table.Column<string>(type: "text", nullable: false),
+                    OutputIndex = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    PolicyId = table.Column<string>(type: "text", nullable: false),
+                    AssetName = table.Column<string>(type: "text", nullable: false),
+                    UtxoStatus = table.Column<int>(type: "integer", nullable: false),
+                    Address = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_NftsByAddress", x => new { x.TxHash, x.OutputIndex, x.Slot, x.PolicyId, x.AssetName, x.UtxoStatus });
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ReducerStates",
                 schema: "coinecta",
                 columns: table => new
@@ -51,13 +70,14 @@ namespace Coinecta.Data.Migrations
                     Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
                     TxHash = table.Column<string>(type: "text", nullable: false),
                     TxIndex = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    UtxoStatus = table.Column<int>(type: "integer", nullable: false),
                     Amount_Coin = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
                     Amount_MultiAssetJson = table.Column<JsonElement>(type: "jsonb", nullable: false),
                     StakePoolJson = table.Column<JsonElement>(type: "jsonb", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_StakePoolByAddresses", x => new { x.Address, x.Slot, x.TxHash, x.TxIndex });
+                    table.PrimaryKey("PK_StakePoolByAddresses", x => new { x.Address, x.Slot, x.TxHash, x.TxIndex, x.UtxoStatus });
                 });
 
             migrationBuilder.CreateTable(
@@ -69,16 +89,36 @@ namespace Coinecta.Data.Migrations
                     Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
                     TxHash = table.Column<string>(type: "text", nullable: false),
                     TxIndex = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
-                    Amount_Coin = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
-                    Amount_MultiAssetJson = table.Column<JsonElement>(type: "jsonb", nullable: false),
-                    LockTime = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    TxOutputRef = table.Column<string>(type: "text", nullable: false),
+                    AmountCbor = table.Column<byte[]>(type: "bytea", nullable: false),
                     Interest_Numerator = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
                     Interest_Denominator = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
-                    StakePositionJson = table.Column<JsonElement>(type: "jsonb", nullable: false)
+                    StakePositionCbor = table.Column<byte[]>(type: "bytea", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_StakePositionByStakeKeys", x => new { x.StakeKey, x.Slot, x.TxHash, x.TxIndex });
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StakePositionsHistory",
+                schema: "coinecta",
+                columns: table => new
+                {
+                    StakeKey = table.Column<string>(type: "text", nullable: false),
+                    Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    TxHash = table.Column<string>(type: "text", nullable: false),
+                    TxIndex = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    UtxoStatus = table.Column<int>(type: "integer", nullable: false),
+                    TxOutputRef = table.Column<string>(type: "text", nullable: false),
+                    AmountCbor = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Interest_Numerator = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    Interest_Denominator = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    StakePositionCbor = table.Column<byte[]>(type: "bytea", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StakePositionsHistory", x => new { x.StakeKey, x.Slot, x.TxHash, x.TxIndex, x.UtxoStatus });
                 });
 
             migrationBuilder.CreateTable(
@@ -119,6 +159,21 @@ namespace Coinecta.Data.Migrations
                     table.PrimaryKey("PK_TransactionOutputs", x => new { x.Id, x.Index });
                 });
 
+            migrationBuilder.CreateTable(
+                name: "UtxosByAddress",
+                schema: "coinecta",
+                columns: table => new
+                {
+                    Address = table.Column<string>(type: "text", nullable: false),
+                    LastUpdated = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    LastRequested = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    UtxoListCborBytes = table.Column<byte[]>(type: "bytea", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UtxosByAddress", x => x.Address);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_Blocks_Slot",
                 schema: "coinecta",
@@ -126,10 +181,70 @@ namespace Coinecta.Data.Migrations
                 column: "Slot");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StakePositionByStakeKeys_Slot",
+                schema: "coinecta",
+                table: "StakePositionByStakeKeys",
+                column: "Slot");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StakePositionByStakeKeys_StakeKey",
+                schema: "coinecta",
+                table: "StakePositionByStakeKeys",
+                column: "StakeKey");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StakePositionByStakeKeys_TxHash",
+                schema: "coinecta",
+                table: "StakePositionByStakeKeys",
+                column: "TxHash");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StakePositionByStakeKeys_TxIndex",
+                schema: "coinecta",
+                table: "StakePositionByStakeKeys",
+                column: "TxIndex");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StakePositionsHistory_Slot",
+                schema: "coinecta",
+                table: "StakePositionsHistory",
+                column: "Slot");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StakePositionsHistory_StakeKey",
+                schema: "coinecta",
+                table: "StakePositionsHistory",
+                column: "StakeKey");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StakePositionsHistory_TxHash",
+                schema: "coinecta",
+                table: "StakePositionsHistory",
+                column: "TxHash");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StakePositionsHistory_TxIndex",
+                schema: "coinecta",
+                table: "StakePositionsHistory",
+                column: "TxIndex");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StakePositionsHistory_UtxoStatus",
+                schema: "coinecta",
+                table: "StakePositionsHistory",
+                column: "UtxoStatus");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TransactionOutputs_Slot",
                 schema: "coinecta",
                 table: "TransactionOutputs",
                 column: "Slot");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UtxosByAddress_LastRequested",
+                schema: "coinecta",
+                table: "UtxosByAddress",
+                column: "LastRequested");
         }
 
         /// <inheritdoc />
@@ -137,6 +252,10 @@ namespace Coinecta.Data.Migrations
         {
             migrationBuilder.DropTable(
                 name: "Blocks",
+                schema: "coinecta");
+
+            migrationBuilder.DropTable(
+                name: "NftsByAddress",
                 schema: "coinecta");
 
             migrationBuilder.DropTable(
@@ -152,11 +271,19 @@ namespace Coinecta.Data.Migrations
                 schema: "coinecta");
 
             migrationBuilder.DropTable(
+                name: "StakePositionsHistory",
+                schema: "coinecta");
+
+            migrationBuilder.DropTable(
                 name: "StakeRequestByAddresses",
                 schema: "coinecta");
 
             migrationBuilder.DropTable(
                 name: "TransactionOutputs",
+                schema: "coinecta");
+
+            migrationBuilder.DropTable(
+                name: "UtxosByAddress",
                 schema: "coinecta");
         }
     }

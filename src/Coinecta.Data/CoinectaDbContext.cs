@@ -24,6 +24,7 @@ public class CoinectaDbContext
     {
         modelBuilder.Entity<StakePoolByAddress>().HasKey(item => new { item.Address, item.Slot, item.TxHash, item.TxIndex, item.UtxoStatus });
         modelBuilder.Entity<StakePoolByAddress>().OwnsOne(item => item.Amount);
+
         modelBuilder.Entity<StakeRequestByAddress>().HasKey(item => new { item.Address, item.Slot, item.TxHash, item.TxIndex });
         modelBuilder.Entity<StakeRequestByAddress>().OwnsOne(item => item.Amount);
 
