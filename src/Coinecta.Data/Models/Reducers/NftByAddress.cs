@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
 using Cardano.Sync.Data.Models;
 using Cardano.Sync.Data.Models.Datums;
 using Crashr.Data.Models.Datums;
@@ -14,7 +12,6 @@ public record NftByAddress
 
     public byte[] AssetsCbor { get; set; } = [];
 
-    [NotMapped]
     public Dictionary<ByteArray> Assets 
     {
         get => CborConverter.Deserialize<Dictionary<ByteArray>>(AssetsCbor);

@@ -1,4 +1,3 @@
-using Cardano.Sync.Data.Models;
 using Cardano.Sync.Data.Models.Datums;
 using Cardano.Sync.Reducers;
 using CardanoSharp.Wallet.Extensions;
@@ -9,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using PallasDotnet.Models;
 using Block = PallasDotnet.Models.Block;
 using TransactionOutput = PallasDotnet.Models.TransactionOutput;
+using TransactionOutputEntity = Cardano.Sync.Data.Models.TransactionOutput;
 
 namespace Coinecta.Sync.Reducers;
 
@@ -23,12 +23,6 @@ public class NftByAddressReducer(
     private readonly string _stakeKeyPrefix = configuration["StakeKeyPrefix"]!;
     private CoinectaDbContext _dbContext = default!;
     private readonly ILogger<NftByAddressReducer> _logger = logger;
-
-    private enum Transaction
-    {
-        Input,
-        Output
-    }
 
     public async Task RollBackwardAsync(NextResponse response)
     {
@@ -49,38 +43,45 @@ public class NftByAddressReducer(
         _dbContext = dbContextFactory.CreateDbContext();
         IEnumerable<TransactionBody> transactions = response.Block.TransactionBodies;
 
-        List<string> resolvedTxInputAddresses = await ResolveTransactionAddressesAsync(response.Block, Transaction.Input);
-        List<string> resolvedTxOutputAddresses = await ResolveTransactionAddressesAsync(response.Block, Transaction.Output);
-
         foreach (TransactionBody tx in transactions)
         {
-            await ProcessInputAsync(response.Block, tx, resolvedTxInputAddresses);
-            await ProcessOutputAsync(response.Block, tx, resolvedTxOutputAddresses);
+            List<TransactionOutputEntity> resolvedTxInputs = await Utils.ResolveTransactionInputsAsync(_dbContext, tx);
+
+            await ProcessInputAsync(response.Block, tx, resolvedTxInputs);
+            await ProcessOutputAsync(response.Block, tx);
         }
 
         await _dbContext.SaveChangesAsync();
         await _dbContext.DisposeAsync();
     }
 
-    private async Task ProcessInputAsync(Block block, TransactionBody tx, List<string> resolvedTxInputAddresses)
+    private async Task ProcessInputAsync(Block block, TransactionBody tx, List<TransactionOutputEntity> resolvedTxInputs)
     {
-        List<NftByAddress> nftByAddresses = _dbContext.NftsByAddress.Local
-            .Where(s => resolvedTxInputAddresses.Contains(s.Address))
-            .OrderByDescending(s => s.Slot)
-            .ToList();
+        List<string> addresses = resolvedTxInputs.Select(txInput => txInput.Address).ToList();
 
-        nftByAddresses = nftByAddresses.Any() ? nftByAddresses : await _dbContext.NftsByAddress
+        List<NftByAddress> nftByAddresses = await _dbContext.NftsByAddress
             .AsNoTracking()
-            .Where(s => resolvedTxInputAddresses.Contains(s.Address))
+            .Where(s => addresses.Contains(s.Address))
             .GroupBy(g => g.Address)
             .Select(g => g.OrderByDescending(s => s.Slot).First())
             .ToListAsync();
-        
+
         if (nftByAddresses.Any())
         {
-            List<ByteArray> txOutputRefs = tx.Inputs.Select(input => OutputRefByteArray(input.Id.Bytes, BitConverter.GetBytes(input.Index))).ToList();
+            List<NftByAddress> nftByAddressesLocal = _dbContext.NftsByAddress.Local
+                .Where(s => addresses.Contains(s.Address))
+                .GroupBy(g => g.Address)
+                .Select(g => g.OrderByDescending(s => s.Slot).First())
+                .ToList();
 
-            nftByAddresses.ForEach(nftByAddress => {
+            nftByAddresses = nftByAddressesLocal.Any() ? nftByAddressesLocal : nftByAddresses;
+            
+            List<ByteArray> txOutputRefs = tx.Inputs
+                .Select(input => Utils.OutputRefToByteArray(input.Id, input.Index))
+                .ToList();
+
+            nftByAddresses.ForEach(nftByAddress => 
+            {
                 List<ByteArray> keys = nftByAddress.Assets.Keys
                     .Where(nftByAddressKey => txOutputRefs.Any(txOutRefKey => txOutRefKey.Value.SequenceEqual(nftByAddressKey.Value)))
                     .ToList();
@@ -89,7 +90,8 @@ public class NftByAddressReducer(
                 {
                     Dictionary<ByteArray> assets = nftByAddress.Assets;
 
-                    keys.ForEach(key => {
+                    keys.ForEach(key => 
+                    {
                         assets.Remove(key);
                     });
 
@@ -100,14 +102,13 @@ public class NftByAddressReducer(
                         Assets = assets
                     };
 
-                    _dbContext.Entry(newNftByAddress).State = EntityState.Detached;
                     _dbContext.NftsByAddress.Add(newNftByAddress);
                 }
             });
         }
     }
 
-    private async Task ProcessOutputAsync(Block block, TransactionBody tx, List<string> resolvedTxOutputAddresses)
+    private async Task ProcessOutputAsync(Block block, TransactionBody tx)
     {
         List<TransactionOutput> transactionOutputs = tx.Outputs
             .Where(output => output.Address.ToBech32().StartsWith("addr"))
@@ -118,14 +119,20 @@ public class NftByAddressReducer(
             .ToList();
 
         if (transactionOutputs.Any())
-        {        
+        {   
+            List<string> addresses = transactionOutputs.Select(txOutput => txOutput.Address.ToBech32()).ToList();   
+
             List<NftByAddress> nftByAddresses = _dbContext.NftsByAddress.Local
-                .Where(s => resolvedTxOutputAddresses.Contains(s.Address))
+                .Where(s => addresses.Contains(s.Address))
+                .GroupBy(g => g.Address)
+                .Select(g => g.OrderByDescending(s => s.Slot).First())
                 .ToList();
 
-            nftByAddresses = nftByAddresses.Count > 0 ? nftByAddresses : await _dbContext.NftsByAddress
+            nftByAddresses = nftByAddresses.Any() ? nftByAddresses : await _dbContext.NftsByAddress
                 .AsNoTracking()
-                .Where(s => resolvedTxOutputAddresses.Contains(s.Address))
+                .Where(s => addresses.Contains(s.Address))
+                .GroupBy(g => g.Address)
+                .Select(g => g.OrderByDescending(s => s.Slot).First())
                 .ToListAsync();
             
             transactionOutputs.ForEach(output =>
@@ -142,13 +149,12 @@ public class NftByAddressReducer(
                     })
                     .ToList();
 
-                NftByAddress? nftByAddress = nftByAddresses.FirstOrDefault(s => s.Address == outputAddress);
+                ByteArray key = Utils.OutputRefToByteArray(tx.Id, output.Index);
 
-                ByteArray key = OutputRefByteArray(tx.Id.Bytes, BitConverter.GetBytes(output.Index));
+                Dictionary<ByteArray> assets = nftByAddresses.FirstOrDefault(s => s.Address == outputAddress)?.Assets ?? [];
 
-                Dictionary<ByteArray> assets = nftByAddress?.Assets ?? [];
-                
-                userTokens.ForEach(token => {
+                userTokens.ForEach(token => 
+                {
                     assets.Add(key, token);
                 });
 
@@ -159,40 +165,8 @@ public class NftByAddressReducer(
                     Assets = assets
                 };
 
-                _dbContext.Entry(newNftByAddress).State = EntityState.Detached;
                 _dbContext.NftsByAddress.Add(newNftByAddress);
             });
         }
-    }
-
-    private async Task<List<string>> ResolveTransactionAddressesAsync(Block block, Transaction txType)
-    {
-        List<string> txOutputRefs = [];
-
-        if (txType == Transaction.Input)
-        {
-            txOutputRefs = block.TransactionBodies.SelectMany(tx => tx.Inputs
-                .Select(input => input.Id.ToHex() + input.Index))
-                .ToList();
-        }
-        else if (txType == Transaction.Output)
-        {
-            txOutputRefs = block.TransactionBodies.SelectMany(tx => tx.Outputs
-                .Select(output => tx.Id.ToHex() + output.Index))
-                .ToList();
-        }
-
-        return await _dbContext.TransactionOutputs
-            .AsNoTracking()
-            .Where(s => txOutputRefs.Contains(s.Id + s.Index))
-            .Select(s => s.Address)
-            .ToListAsync(); 
-    }
-
-    private ByteArray OutputRefByteArray(byte[] txHash, byte[] txIndex)
-    {
-        byte[] outputRefBytes = txHash.Concat(txIndex).ToArray();
-
-        return new ByteArray(outputRefBytes);
     }
 }
