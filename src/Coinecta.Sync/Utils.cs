@@ -30,4 +30,16 @@ public static class Utils
             }
         };
     }
+
+    public static Dictionary<Hash, ulong> FilterAssetByPolicyId
+    (
+        Dictionary<Hash, Dictionary<Hash, ulong>> multiAsset,
+        string policyIdFilter
+    )
+    {
+        return multiAsset
+            .Where(ma => ma.Key.ToHex() == policyIdFilter)
+            .Select(ma => ma.Value)
+            .FirstOrDefault() ?? [];
+    }
 }
