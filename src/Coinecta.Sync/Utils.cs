@@ -3,6 +3,9 @@ using TransactionOutputEntity = Cardano.Sync.Data.Models.TransactionOutput;
 using ValueEntity = Cardano.Sync.Data.Models.Value;
 using DatumEntity = Cardano.Sync.Data.Models.Datum;
 using DatumType = Cardano.Sync.Data.Models.DatumType;
+using Cardano.Sync.Data.Models.Datums;
+using Coinecta.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Coinecta;
 
@@ -31,15 +34,33 @@ public static class Utils
         };
     }
 
-    public static Dictionary<Hash, ulong> FilterAssetByPolicyId
-    (
-        Dictionary<Hash, Dictionary<Hash, ulong>> multiAsset,
-        string policyIdFilter
-    )
+    public static Dictionary<Hash, ulong> FilterAssetByPolicyId ( Dictionary<Hash, Dictionary<Hash, ulong>> multiAsset, string policyIdFilter)
     {
         return multiAsset
             .Where(ma => ma.Key.ToHex() == policyIdFilter)
             .Select(ma => ma.Value)
             .FirstOrDefault() ?? [];
+    }
+    
+    public static ByteArray OutputRefToByteArray(Hash txHash, ulong txIndex)
+    {
+        byte[] txHashBytes = txHash.Bytes;
+        byte[] txIndexBytes = BitConverter.GetBytes(txIndex);
+        byte[] outputRefBytes = txHashBytes.Concat(txIndexBytes).ToArray();
+
+        return new ByteArray(outputRefBytes);
+    }
+
+    public static async Task<List<TransactionOutputEntity>> ResolveTransactionInputsAsync(CoinectaDbContext _dbContext, TransactionBody tx)
+    {
+        List<string> txOutputRefs = tx.Inputs
+            .Select(txInput => txInput.Id.ToHex() + txInput.Index)
+            .ToList();
+
+        return await _dbContext.TransactionOutputs
+            .AsNoTracking()
+            .Where(txOutput => txOutputRefs.Contains(txOutput.Id + txOutput.Index))
+            .Select(txOutput => txOutput)
+            .ToListAsync();
     }
 }
