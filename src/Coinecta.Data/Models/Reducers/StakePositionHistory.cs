@@ -1,14 +1,15 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using Cardano.Sync.Data.Models;
 using Cardano.Sync.Data.Models.Datums;
-using ValueDatum = Cardano.Sync.Data.Models.Datums.Value;
-using Value = Cardano.Sync.Data.Models.Value;
 using Coinecta.Data.Models.Datums;
+using Coinecta.Data.Models.Enums;
+using Value = Cardano.Sync.Data.Models.Value;
+using ValueDatum = Cardano.Sync.Data.Models.Datums.Value;
 using Coinecta.Data.Utils;
 
 namespace Coinecta.Data.Models.Reducers;
 
-public record StakePositionByStakeKey
+public record StakePositionHistory
 {
     public string StakeKey { get; init; } = default!;
     public ulong Slot { get; init; }
@@ -18,6 +19,7 @@ public record StakePositionByStakeKey
     public byte[] AmountCbor { get; set; } = [];
     public Rational Interest { get; init; } = default!;
     public byte[] StakePositionCbor { get; set; } = [];
+    public UtxoStatus UtxoStatus { get; set; } = UtxoStatus.Unspent;
 
     [NotMapped]
     public CIP68<Timelock> StakePosition
@@ -39,5 +41,4 @@ public record StakePositionByStakeKey
         get => CoinectaUtils.ConvertValueDatumToValue(AmountDatum);
         set => AmountDatum = CoinectaUtils.ConvertValueToValueDatum(value);
     }
-
 }
